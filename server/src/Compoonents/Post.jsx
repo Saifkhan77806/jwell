@@ -104,13 +104,6 @@ const Post = () => {
         }
     };
 
-    const text = `
-    <p>This is some sample text. Try selecting any part of this 
-    <a href="https://github.com/" target="_blank" class="underline">
-      text
-    </a>
-    to log it to the console and create a link.</p>
-  `;
   return (
     <>
     <div className='pt-[20px]'></div>

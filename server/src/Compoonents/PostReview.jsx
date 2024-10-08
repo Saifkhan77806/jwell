@@ -29,6 +29,7 @@ function PostReview() {
       alert("Review upload successfully !")
       console.log(res.data)
       setData({...data, text: ""})
+      
       navigate("/ai/text-img")
 
     }).catch((err)=>{
