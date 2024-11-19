@@ -19,7 +19,6 @@ const ConfirmModal = ({ user }) => {
   };
 
   const handleCancelClick = () => {
-    alert('Model now becoming close');
     if (isChecked) {
       localStorage.setItem('dont', true)
       console.log("Don't show me again");

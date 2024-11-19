@@ -12,11 +12,12 @@ import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import api from "./Api";
 import { useAuth } from "../../store/auth";
+import { Helmet } from "react-helmet-async";
 
 function RegisterInfo() {
     const navigate = useNavigate()
 
-    const {userData} = useAuth()
+    const { userData } = useAuth()
 
     const [userDatas, setUserDatas] = useState({
         firstName: "",
@@ -29,7 +30,7 @@ function RegisterInfo() {
     const handlechange = (e) => {
         setUserDatas({ ...userDatas, [e.target.name]: e.target.value })
     }
-    
+
 
     // useEffect(()=>{
     //     axios.get("http://localhost:3000/linkedin/success",{ withCredentials: true}).then((res)=>{
@@ -45,25 +46,25 @@ function RegisterInfo() {
 
     const submit = (e) => {
         e.preventDefault()
-        if(userDatas.country=="",userDatas.firstName=="",userDatas.lastName=="" || userDatas.password=="" || userDatas.phone== ""){
+        if (userDatas.country == "", userDatas.firstName == "", userDatas.lastName == "" || userDatas.password == "" || userDatas.phone == "") {
             alert("please fill all the fields")
-        }else{
+        } else {
             console.log(userDatas)
-    
-            api.post(`/setinfo/${userData?.type.id}`, userDatas).then((res)=>{
+
+            api.post(`/setinfo/${userData?.type.id}`, userDatas).then((res) => {
                 console.log(res.data)
-            }).catch((err)=>{
+            }).catch((err) => {
                 console.log(err)
             })
-    
-            api.post(`/send-otp`, {email: userData?.type?.email}).then((res)=>{
+
+            api.post(`/chg-otp`, { email: userData?.type?.email }).then((res) => {
                 console.log(res.data)
-            }).catch((err)=>{
+            }).catch((err) => {
                 console.log(err)
             })
-            
-    
-            navigate(`/verify-id/${userData?.type?.email}` )
+
+
+            navigate(`/verify-id/${userData?.type?.email}`)
         }
 
     }
@@ -72,6 +73,10 @@ function RegisterInfo() {
 
     return (
         <>
+            <Helmet>
+                <title>Join Jeweality - Register information and Design Unique Jewelry</title>
+                <meta name='description' content="Register information today to start designing your own jewelry with Jeweality. Our platform makes it easy for everyone to create custom pieces with AI. Whether you're a beginner or expert, join our creative community and bring your designs to life." />
+            </Helmet>
             <div className="pt-[120px]"></div>
             <div color="transparent" className="flex items-center justify-center" >
 

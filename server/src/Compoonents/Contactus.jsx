@@ -17,7 +17,7 @@ const Contactus = () => {
     if(data.names=="" || data.email=="" || data.subject=="" || data.message==""){
       alert("please fill all the fields")
     }else{
-      api.post("/contacus",{names: user?.userData?.name, email: user?.userData?.email, subject: data.subject, message: data.message}).then((res)=>{
+      api.post("/contacus",{names: "saif khan", email: "saifkhan77806@gmail.com", subject: data.subject, message: data.message}).then((res)=>{
         console.log("contact form addedd successfully !")
         alert("contact form addedd successfully !")
       }).catch((err)=>{
@@ -35,7 +35,7 @@ const Contactus = () => {
     <div className=" my-10 mx-auto rounded-md border-double  flex flex-col gap-6 w-[95%] p-10 bg-light shadow-xl max-[750px]:w-[85%]">   
     <div className="relative h-11 w-full min-w-[200px]">
       <input placeholder=" Enter Your Name"
-        value={user?.userData?.name ? user?.userData?.name : ""}
+        value={"saif khan"}
         readOnly
         className="peer h-full w-full border-b border-gray-600 bg-transparent pt-4 pb-1.5 font-sans text-sm font-normal text-blue-gray-700 outline outline-0 transition-all placeholder-shown:border-blue-gray-200 focus:border-gray-500 focus:outline-0 disabled:border-0 disabled:bg-blue-gray-50 placeholder:opacity-0 focus:placeholder:opacity-100 poppins" />
       <label
@@ -45,7 +45,7 @@ const Contactus = () => {
     </div>
     <div className="relative h-11 w-full min-w-[200px]">
       <input placeholder="name@gmail.com"
-      value={user?.userData?.email}
+      value={"saifkhan77806@gmail.com"}
       readOnly
         className="peer h-full w-full border-b border-gray-600 bg-transparent pt-4 pb-1.5 font-sans text-sm font-normal text-blue-gray-700 outline outline-0 transition-all placeholder-shown:border-blue-gray-200 focus:border-gray-500 focus:outline-0 disabled:border-0 disabled:bg-blue-gray-50 placeholder:opacity-0 focus:placeholder:opacity-100 poppins" />
       <label

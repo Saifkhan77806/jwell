@@ -2,7 +2,6 @@ import React, { useState } from 'react'
 import {
     Sheet,
     SheetContent,
-    SheetDescription,
     SheetHeader,
     SheetTitle,
     SheetTrigger,
@@ -20,7 +19,21 @@ const Sheets = () => {
     const [open,setOpen] = useState(true)
     const navigate = useNavigate()
 
-    const {userData, logout} = useAuth()
+    const {userData, logout, user, credit} = useAuth()
+
+
+  const isLogin = () =>{
+    if(user){
+      if(credit>0){
+        console.log("you are elgible")
+      }else{
+        navigate("/pricing")
+      }
+    }else{
+      navigate("/login")
+    }
+  }
+
 
     return (
         <>
@@ -38,25 +51,20 @@ const Sheets = () => {
                         </h1>
                         <h1 className='font-bold poppins py-2 text-center  hover:bg-gray-200 flex justify-center' onClick={()=>{setOpen(!open)}}>Features {open? <IoIosArrowDown className='ml-3' /> :<IoIosArrowUp className='ml-3' />}</h1>
                     <ul className='transition-all' style={{display: open ? "none" : "block"}}>
-                        <li className='py-3 hover:bg-gray-200 text-center transition-all luxuria hover:font-bold'> <Link to="/ai/text-img">
+                        <li className='py-3 hover:bg-gray-200 text-center transition-all luxuria hover:font-bold' onClick={isLogin}> <Link to="/ai/text-img">
                             Text to images
                             </Link></li>
-                        <li className='py-3 hover:bg-gray-200 text-center  transition-all luxuria hover:font-bold'>
+                        <li className='py-3 hover:bg-gray-200 text-center  transition-all luxuria hover:font-bold' onClick={isLogin}>
                         <Link to="/ai/img-img">
                             Images to images
                             </Link>
                         </li>
-                        <li className='py-3 hover:bg-gray-200 transition-all text-center  luxuria hover:font-bold'>
+                        <li className='py-3 hover:bg-gray-200 transition-all text-center  luxuria hover:font-bold' onClick={isLogin}>
                         <Link to="/ai/img-text">
                          Images to text
                             </Link>
                         </li>
                      </ul>
-                     <h1 className='font-bold poppins py-2 text-center hover:bg-gray-200'>
-                     <Link to="/admin">
-                            Admin
-                    </Link>
-                     </h1>
                      <h1 className='font-bold poppins py-2 text-center hover:bg-gray-200'>
                      <Link to="/pricing">
                             Pricing
@@ -81,10 +89,10 @@ const Sheets = () => {
                         userData ? (
                             <>
                             <Button className="absolute bottom-4 hover:bg-[#284e1f] transition-all ac-bg" onClick={()=>{navigate("/profile-info")}}>Profile</Button>
-                            <button className='mx-3 ac-bg px-5 py-4 font-semibold hover:bg-[#284e1f] rounded-full transition-all text-white' onClick={()=>{
+                            <Button className='mx-3 ac-bg px-5 py-4 font-semibold hover:bg-[#284e1f] absolute right-4 bottom-4 transition-all text-white' onClick={()=>{
                                 logout()
-                                window.location.href = "https://server-ten-orcin.vercel.app/"
-                                }}>Logout</button>
+                                window.location.href = "https://jewellerydekho.in/login"
+                                }}>Logout</Button>
                             </>
                         ): (
                             <>

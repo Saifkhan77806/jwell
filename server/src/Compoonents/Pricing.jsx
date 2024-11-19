@@ -5,7 +5,7 @@ import api from "./Api"
 import { useAuth } from '../../store/auth';
 import { useNavigate } from "react-router-dom";
 
-function Pricing({amt, uses}) {
+function Pricing({amt, uses, type, credits}) {
   const Razorpay = useRazorpay();
   const navigate = useNavigate()
   const {user} = useAuth()
@@ -69,12 +69,22 @@ function Pricing({amt, uses}) {
               });
               // Add onPaymentSuccessfull function here
               alert("Payment successful!");
+
+              if(uses == "Business version"){
+                await api.post("/subscription", {subscription: uses , email: user?.userData?.email, type}).then((res)=>{
+                  console.log(res.data)
+                  navigate("/partner/1200")
+                 }).catch((err)=>{
+                  console.log("error in stroing subscription", err)
+                 })
+              }else{
+                await api.post("/subscription", {subscription: uses ,credits, email: user?.userData?.email, type}).then((res)=>{
+                 console.log(res.data)
+                }).catch((err)=>{
+                 console.log("error in stroing subscription", err)
+                })
+              }
   
-             await api.post("/subscription", {subscription: uses ,credits: 300, email: user?.userData?.email}).then((res)=>{
-              console.log(res.data)
-             }).catch((err)=>{
-              console.log("error in stroing subscription", err)
-             })
   
             } catch (err) {
               // Add onPaymentUnSuccessfull function here
@@ -117,12 +127,12 @@ function Pricing({amt, uses}) {
       <h5 className="mb-4 text-xl font-medium text-gray-500 dark:text-gray-400">
        {uses}
         <br />
-        monthly creation
+        {type=="y"? "Yearly" : "Monthly"} creation
         </h5>
       <div className="flex items-baseline text-gray-900 dark:text-white">
         <span className="text-3xl font-semibold">Rs</span>
         <span className="text-5xl font-extrabold tracking-tight">{amt}</span>
-        <span className="ml-1 text-xl font-normal text-gray-500 dark:text-gray-400">/month</span>
+        <span className="ml-1 text-xl font-normal text-gray-500 dark:text-gray-400">/{type=="y"? "year" : "month"}</span>
       </div>
       <ul className="my-7 space-y-5">
         <li className="flex space-x-3">
@@ -138,7 +148,7 @@ function Pricing({amt, uses}) {
               clipRule="evenodd"
             />
           </svg>
-          <span className="text-base font-normal leading-tight text-gray-500 dark:text-gray-400">200 times credits for free</span>
+          <span className="text-base font-normal leading-tight text-gray-500 dark:text-gray-400">{credits} times credits for free</span>
         </li>
         <li className="flex space-x-3">
           <svg

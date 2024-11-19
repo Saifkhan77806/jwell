@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
-import IMAGES from '../images'
 import { Link } from 'react-router-dom'
 import api from './Api'
+import { Helmet } from 'react-helmet-async'
 
 const Blog = () => {
 
@@ -16,6 +16,10 @@ const Blog = () => {
 
   return (
    <>
+   <Helmet>
+<title>Jeweality Blog - Jewelry Design Tips and AI Innovations  </title>
+<meta name='description' content="Stay updated with the latest trends in jewelry design and AI technology through the Jeweality blog. Explore tips, tutorials, and news that inspire creativity and innovation in the jewelry industry." />
+</Helmet>
    <div className="pt-[120px]"></div>
    <div className='grid grid-cols-3 max-md:grid-cols-2 max-sm:grid-cols-1 px-3'>
 

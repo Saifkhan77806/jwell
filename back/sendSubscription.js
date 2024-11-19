@@ -2,7 +2,7 @@ const nodemailer = require('nodemailer');
 let otps;
 require('dotenv').config()
 
-const sendSubscription = (email, subscription) =>{
+const sendSubscription = (email, subscription, Date, credits) =>{
     
 
     const transporter = nodemailer.createTransport({
@@ -24,7 +24,9 @@ const sendSubscription = (email, subscription) =>{
         to : email,
         subject: "Loyal customer from Jeweallti",
         text: 'this jeweallity',
-        html: `<h1>you had purchased subscription</h1></br><p>
+        html: `<h1>${subscription} you had purchased subscription</h1></br><p>
+        with ${credits} </br>
+        which will be expire after ${Date} 
         Thank you!
         </p>`
     }).then((info)=>{

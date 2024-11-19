@@ -42,6 +42,20 @@ const userSchema = new mongoose.Schema({
     subscription:{
         type: String,
     },
+    expires:{
+        type: String
+    },
+    partcredit:{
+        type: Number,
+        default: 0
+    },
+    member:{
+        type: Array,
+        default: null
+    },
+    verifyOtp:{
+        type: String
+    },
     history:[
         {
             imgurl: {

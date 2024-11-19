@@ -118,6 +118,10 @@ nav{
   font-family: "Playfair Display", serif;;
 }
 
+.color-light{
+  color: #efefef;
+}
+
 .ac-bg{
   background: #455e34;
 }
@@ -127,6 +131,7 @@ nav{
 .bg-dark{
   background: #2e461f;
 }
+
 
 .home-bg{
   background-size: 100% 100%;
@@ -430,3 +435,50 @@ margin-left: 35px;
 .imagcont:hover .download{
   display: block;
 }
+
+.historyContainer:hover .historyContent{
+  bottom: -25%;
+}
+
+.historyContent{
+  background: linear-gradient(transparent, rgb(110, 109, 109));
+  color: white;
+  transition: 0.5s;
+  font-size: small;
+  font-style: italic;
+  text-align: center;
+}
+input[type=number] {
+  -moz-appearance: textfield;
+}
+
+/* For Firefox specifically */
+input[type=number]::-moz-inner-spin-button,
+input[type=number]::-moz-outer-spin-button {
+  -moz-appearance: none;
+  margin: 0;
+}
+
+/* For WebKit browsers like Chrome, Safari */
+input[type=number]::-webkit-outer-spin-button,
+input[type=number]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Initial blur effect */
+.blur-img {
+   filter: blur(50px);
+   box-shadow: 1px 1px 2px 5px;
+   background-color: #5d5f5b6e;
+
+
+ transition: filter 1.3s ease;
+  /* background-color: gray; */
+}
+
+/* Removes blur effect once image is loaded */
+.blur-img:not([loading="lazy"]) {
+  filter: none;
+}
+

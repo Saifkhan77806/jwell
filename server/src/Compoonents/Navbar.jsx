@@ -42,7 +42,7 @@ const Navbar = () => {
     <>
       <nav className='fixed w-full z-30 top-0'>
         <div className='flex justify-center py-6 relative z-20'>
-          <div className='absolute left-0 pt-5 px-5 top-0'>
+          <div className='absolute left-0 h-full flex justify-center items-center pt-5 px-5 -top-2'>
             <Sheet />
           </div>
           {/* logo */}
@@ -62,7 +62,7 @@ const Navbar = () => {
             }
           </div>
         </div>
-        <div className='flex justify-center py-1 relative' style={{ top: scroll == "down" ? "-112px" : "0px", display: scroll == "down" ? "none" : "flex" }}>
+        <div className='flex justify-center my-auto py-1 relative' style={{ top: scroll == "down" ? "-112px" : "0px", display: scroll == "down" ? "none" : "flex" }}>
           <Menu />
         </div>
       </nav>

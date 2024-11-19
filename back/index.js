@@ -1,7 +1,7 @@
 const express = require('express')
 const passport = require('passport')
 const LocalStrategy = require('passport-local').Strategy
-// const multer = require("multer")
+const multers = require("multer")
 const cookieSession = require('cookie-session')
 const app = express()
 const cors = require('cors')
@@ -28,26 +28,30 @@ const Contact = require('./schema/ContactSchema')
 const { errorMonitor } = require('stream')
 const { uploadMultiple } = require('./middlware/imageUploader')
 require('dotenv').config()
+const busboy = require('busboy');
 
 // This razorpayInstance will be used to
 // access any resource from razorpay
 
-// const storage = multer.diskStorage({
-//     destination: (req, file, cb) =>{
-//         cb(null, "public/")
-//     },
-//     filename: (req,file,cb) =>{
-//         cb(null, file.fieldname + "_" + Date.now() + path.extname(file.originalname))
-//     }
-// })
+const storages = multers.diskStorage({
+    destination: (req, file, cb) =>{
+        cb(null, "public/")
+    },
+    filename: (req,file,cb) =>{
+        cb(null, file.fieldname + "_" + Date.now() + path.extname(file.originalname))
+    }
+})
 
-// const upload = multer({
-//     storage: storage
-// })
+const uploads = multers({ storage: multers.memoryStorage() })
+
+// {
+//     storage: storages
+// }
 
 const cloudinary = require('cloudinary').v2;
 const { CloudinaryStorage } = require('multer-storage-cloudinary');
 const multer = require('multer');
+const { sendContact } = require('./sendContact')
 
 // Cloudinary config
 cloudinary.config({
@@ -84,12 +88,6 @@ let imageId
 const RAZORPAY_KEY_ID = "rzp_live_9YDNdvLxBLmTA"
 const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET
 
-
-// cloudinary.config({
-//     cloud_name: "disb0qkhr",
-//     api_key: "965223264892684",
-//     api_secret: "U_vXLOAlOxBFiJNLdW5WepoYjjs",
-//   });
 
 
 app.use(bodyParser.json());
@@ -132,7 +130,7 @@ passport.deserializeUser(function(user,done){
 
 
 app.use(cors({
-    origin: `${process.env.FORNTEND_URL}`,  // Frontend URL
+    origin: ["http://localhost:5173", "http://localhost:5174"],  // Frontend URL
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],  // Allowed HTTP methods
     allowedHeaders: ['Content-Type', 'Authorization'], // Allowed headers
     credentials: true, // Allow credentials (cookies, auth headers, etc.)
@@ -141,7 +139,7 @@ app.use(cors({
 
 
 app.options('*', (req, res) => {
-    res.header('Access-Control-Allow-Origin', `${process.env.FORNTEND_URL}`);
+  
     res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
     res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
     res.header('Access-Control-Allow-Credentials', 'true');
@@ -322,16 +320,23 @@ app.post("/send-otp", async(req,res)=>{
 })
 
 app.post("/verfiy-otp", async(req,res)=>{
-    const {userOtp} = req.body;
-    if(userOtp==otp){
-          success = true;
-          console.log(success);  
-       res.status(200).send({success})
-       otp = null
-    }else{
-        console.log("invalid otp");
-        res.status(200).send({msg: "invalid otp"});
-    }
+    const {userOtp, email} = req.body
+
+   const user =  await User.findOne({email})
+
+   if(!user){
+    res.status(200).send({msg: "uset not found", success: false})
+    return
+   }
+
+  const isCorrectOtp =  jwt.verify(user.verifyOtp, 'your-secret-key')
+
+  if(isCorrectOtp.otp == userOtp){
+    console.log("otp is correct")
+    res.status(200).send({success: true})
+  }else{
+    res.status(200).send({msg: "invalid otp"})
+  }
 })
 
 app.get('/auth/callback/success', (req, res) => {
@@ -387,7 +392,11 @@ app.post("/register",async (req,res)=>{
 
    await userData.save()
 
-   res.status(200).json({success: true, msg: "user saved successfully", logtyp: "register"})
+   token = jwt.sign({ id: {type: {name: "manualUser",email,profile,id: ids,provider: "manual",country,firstName,lastName,phone, password: hashedPss}, logtype: "login"}, data: "data" }, 'your-secret-key', {
+    expiresIn: '1d' // Token expiry (e.g., 1 day)
+});
+res.status(200).send({msg: "user saved successfully", user: {name: "manualUser",email,profile,id: ids,provider: "manual",country,firstName,lastName,phone, password: hashedPss}, token})
+token = null
 
 })
 
@@ -422,6 +431,29 @@ app.post('/manual-login', (req, res, next) => {
     }
 });
 
+app.post("/loginmy", async(req,res)=>{
+    const {email, password} = req.body;
+
+    const user = await User.findOne({email})
+
+    
+    if(user){
+        const isMatch = await bcrypt.compare(password, user.password)
+        if(isMatch){
+            token = jwt.sign({ id: {type: user, logtype: "login"}, data: "data" }, 'your-secret-key', {
+                expiresIn: '1d' // Token expiry (e.g., 1 day)
+            });
+            res.status(200).send({msg: "logged", user, token})
+            token = null
+        }else{
+            res.status(200).send({msg: "pass login failed", success: false})
+        }
+    }else{
+        res.status(200).send({msg: "pass email failed", success: false})
+    }
+
+})
+
 
 app.post('/verified/:email', async (req,res)=>{
     const {email} = req.params
@@ -443,6 +475,8 @@ app.get("/cookie",(req,res)=>{
 
 app.post("/text",async (req,res)=>{
     const {msg, noImG, email} = req.body
+
+    console.log({msg, noImG, email})
    
 leonardoai.auth(process.env.LEAONARDO_API_KEY);
 leonardoai.createGeneration({
@@ -461,18 +495,24 @@ modelId: "6b645e3a-d64f-4341-a6d8-7a3690fbf042",
   height: 832,
   ultra: true,
   styleUUID: "111dc692-d470-4eec-b791-3475abac4c46",
-  enhancePrompt: true
+  enhancePrompt: false
 })
   .then(async({ data }) => {
 
     console.log(data.sdGenerationJob.generationId)
 
-    await User.findOneAndUpdate({email}, {id: data.sdGenerationJob.generationId}).then(()=>{
-        console.log("id stored successfully")
-        res.status(200).send({data: "id stored successfully"})
-    }).catch((err)=>{
-        console.log("err in updating",err)
-    })
+    if(email){
+        await User.findOneAndUpdate({email}, {id: data.sdGenerationJob.generationId}).then(()=>{
+            console.log("id stored successfully")
+            res.status(200).send({data: "id stored successfully", id: data?.sdGenerationJob?.generationId})
+        }).catch((err)=>{
+            console.log("err in updating",err)
+        })
+    }else{
+        res.status(200).send({data: "id generated successfully", id: data?.sdGenerationJob?.generationId})
+    }
+
+    
   }
    
 
@@ -492,11 +532,13 @@ app.get("/re",async(req,res)=>{
     console.log("from id",id.id)
     const ids = id.id
 
+    const {data} = req.body
+
 leonardoai.auth(process.env.LEAONARDO_API_KEY);
 let statu = "PENDING"
 // while(statu === "PENDING"){
     console.log(statu, "epep")
-    leonardoai.getGenerationById({id: ids})
+    leonardoai.getGenerationById({id: data})
     .then(({ data }) => {
         // console.log({id})
         console.log(data.generations_by_pk.status)
@@ -515,181 +557,7 @@ let statu = "PENDING"
     .catch(err => console.error(err));
 // }
 
-})
-
-const api_Key = process.env.LEAONARDO_API_KEY;
-const authorization = `Bearer ${api_Key}`;            
-const headers = {
-    "accept": "application/json",
-    "content-type": "application/json",
-    "authorization": authorization
-};
-const urlInit = "https://cloud.leonardo.ai/api/rest/v1/init-image";
-const imageFilePath = path.join(__dirname, 'img', 'blog1.jpg')
-const payloadInit = { "extension": "jpg" };
-app.post("/imgs", async(req,res)=>{
-        
-        
-        // Get a presigned URL for uploading an image
-        
-        
-        fetch(urlInit, {
-            method: 'POST',
-            headers: headers,
-            body: JSON.stringify(payloadInit)
-        })
-        .then(response => {
-            console.log("init status",response.status);
-            return response.json();
-        })
-        .then(data => {
-            console.log("init image", data)
-            
-            const fields = JSON.parse(data.uploadInitImage.fields);
-            const urlUpload = data.uploadInitImage.url;
-            imageId = data.uploadInitImage.id; // For getting the image later
-        
-            const imageFilePath = path.join(__dirname, 'img', 'blog1.jpg')
-            const fileStream = fs.createReadStream(imageFilePath);
-        
-            const formData = new FormData();
-            Object.keys(fields).forEach(key => {
-                formData.append(key, fields[key]);
-            });
-            formData.append('file', fileStream);
-        
-
-            console.log("field", formData)
-
-            return fetch(urlUpload, {
-                method: 'POST',
-                body: formData
-            });
-        })
-        .then(response => {
-            console.log("upload url",response);
-            return response;
-        })
-        .then(() => {
-            // Generate with an image prompt
-            const urlGenerate = "https://cloud.leonardo.ai/api/rest/v1/generations";
-        
-            const payloadGenerate = {
-                "height": 512,
-                "modelId": "6bef9f1b-29cb-40c7-b9df-32b51c1f67d3", // Setting model ID to Leonardo Creative
-                "prompt": "An oil painting of a cat",
-                "width": 512,
-                "imagePrompts": [imageId] // Accepts an array of image IDs
-            };
-        
-            // return fetch(urlGenerate, {
-            //     method: 'POST',
-            //     headers: headers,
-            //     body: JSON.stringify(payloadGenerate)
-            // });
-            leonardoai.auth(process.env.LEAONARDO_API_KEY);
-            leonardoai.createGeneration({
-                "height": 512,
-                "modelId": "6bef9f1b-29cb-40c7-b9df-32b51c1f67d3", // Setting model ID to Leonardo Creative
-                "prompt": "An oil painting of a cat",
-                "width": 512,
-                "imagePrompts": [imageId] // Accepts an array of image IDs
-            })
-        }).then(response => {
-            console.log("url generated", response);
-            return response;
-        }).then((datas) => {
-            const generationId = "99ce0d803e192d7edf6328a25087070a";
-        
-            const urlGetGeneration = `https://cloud.leonardo.ai/api/rest/v1/generations`;
-        
-            return new Promise(resolve => setTimeout(resolve, 20000)).then(() => {
-                return fetch(urlGetGeneration, {
-                    method: 'GET',
-                    headers: headers
-                });
-            });
-        })
-        .then(response => {
-            "final", response
-        })
-        .catch(error => {
-            console.error('Error:', error);
-        });
-        
-        
-              
-})
-
-let image_id
-app.post("/im", async(req,res)=>{
-    const authorization = `Bearer process.env.LEAONARDO_API_KEY`;
-    
-    const headers = {
-        "accept": "application/json",
-        "content-type": "application/json",
-        "authorization": authorization
-    };
-    
-    // Get a presigned URL for uploading an image
-    const url = "https://cloud.leonardo.ai/api/rest/v1/init-image";
-    
-    const payload = { "extension": "jpg" };
-    
-    axios.post(url, payload, { headers })
-        .then(response => {
-            console.log("Get a presigned URL for uploading an image:",response);
-            
-            // Upload image via presigned URL
-            const fields = JSON.parse(response.data.uploadInitImage.fields);
-            const uploadUrl = response.data.uploadInitImage.url;
-            image_id = response.data.uploadInitImage.id;
-    
-            const imageFilePath = path.join(__dirname, 'img', 'blog1.jpg');
-            const formData = new FormData();
-            for (const key in fields) {
-                formData.append(key, fields[key]);
-            }
-            formData.append('file', fs.createReadStream(imageFilePath));
-    
-            return axios.post(uploadUrl, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
-        })
-        .then(response => {
-            console.log("Upload image via presigned URL:",response);
-            
-            // Generate with Image to Image
-            const generationUrl = "https://cloud.leonardo.ai/api/rest/v1/generations";
-            const generationPayload = {
-                "height": 512,
-                "modelId": "1e60896f-3c26-4296-8ecc-53e2afecc132", // Setting model ID to Leonardo Diffusion XL
-                "prompt": "An oil painting of a cat",
-                "width": 512,
-                "init_image_id": image_id,  // Only allows for one Image
-                "init_strength": 0.5  // Must float between 0.1 and 0.9
-            };
-    
-            return axios.post(generationUrl, generationPayload, { headers });
-        })
-        .then(response => {
-            console.log("Generation of Images using Image to Image",response.status);
-            
-            // Get the generation of images
-            console.log(response)
-            const generation_id = response.data.sdGenerationJob.generationId;
-            console.log(generation_id)
-            const getGenerationUrl = `https://cloud.leonardo.ai/api/rest/v1/generations/44a9c2ee-1a51-4f45-b7cb-15fc5b701b99`;
-    
-           return axios.get(getGenerationUrl, { headers });
-        })
-        .then(response => {
-            console.log(response.data);
-        })
-        .catch(error => {
-            console.error(error);
-        });
-    
-    
-})
+})   
 
 
 app.post("/enhance",async(req,res)=>{
@@ -704,17 +572,46 @@ app.post("/enhance",async(req,res)=>{
     .catch(err => console.error(err));
 })
 
-app.post("/update-credit",(req,res)=>{
+app.post("/update-credit",async(req,res)=>{
     const {email,credits} = req.body
 
     console.log(email, credits)
 
-    User.findOneAndUpdate({email}, {credits}).then((data)=>{
+   const user =  await User.findOne({email})
+
+   let acCredit
+
+   if(user.credits< user.partcredit){
+
+    if(user.partcredit < credits){
+         acCredit = parseInt(user?.partcredit)
+    }else{
+         acCredit = parseInt(user.partcredit - credits)
+    }
+
+    console.log(acCredit, "this is actual that is want to add in the userSchema from partner-credit")
+
+    User.findOneAndUpdate({email}, {partcredit: acCredit}).then((data)=>{
         res.status(200).json({msg:" credite updated successfully", success: true})
     }).catch((err)=>{
         console.log(err)
         res.status(200).json({msg: "err in updating credits", err})
     })
+   }else{
+    if(user.credits < credits){
+        acCredit = parseInt(user.credits)
+   }else{
+        acCredit = parseInt(user.credits - credits)
+   }
+    console.log(acCredit, "this is actual that is want to add in the userSchema from user credit")
+
+    User.findOneAndUpdate({email}, {credits: acCredit}).then((data)=>{
+        res.status(200).json({msg:" credite updated successfully", success: true})
+    }).catch((err)=>{
+        console.log(err)
+        res.status(200).json({msg: "err in updating credits", err})
+    })
+   }
 })
 
 app.post("/addcredits", async(req,res)=>{
@@ -786,10 +683,47 @@ app.post('/verify-payment', async (req, res) => {
     }
 })
 
+
+app.post("/credit-null",async (req,res)=>{
+    const {email} = req.body;
+
+    await User.findOneAndUpdate({email}, {subscription: null, credits: 0, expires: "subscription expired"}).then(()=>{
+        res.status(200).send({msg : "subscriptions and credit stored successfully"})
+        
+    }).catch((err)=>{
+        console.log(err)
+        res.status(404).send(err)
+    })
+
+})
+
 app.post("/subscription", async(req,res)=>{
-    const {subscription, credits, email} = req.body;
-    sendSubscription(email,subscription)
-    await User.findOneAndUpdate({email}, {subscription, credits}).then(()=>{
+    const {subscription, credits, email, type} = req.body;
+
+    function getDateWithIncreasedMonth() {
+        let today = new Date(); // Get today's date
+        // Create a new Date object with the month increased by 1
+        let nextMonthDate = new Date(today.setMonth(today.getMonth() + 1));
+    
+        return nextMonthDate;
+    }
+
+    function getDateWithIncreasedYear(){
+        {
+            let today = new Date(); // Get today's date
+            // Create a new Date object with the month increased by 1
+            let nextMonthDate = new Date(today.setFullYear(today.getFullYear() + 1));
+        
+            return nextMonthDate;
+        }
+    }
+
+    const dat = type == "m" ? getDateWithIncreasedMonth() : getDateWithIncreasedYear()
+    
+    // Example usage
+
+    sendSubscription(email, subscription, dat, credits)
+    await User.findOneAndUpdate({email}, {subscription, credits, expires: type == "m"?getDateWithIncreasedMonth(): getDateWithIncreasedYear()}).then(()=>{
 
         res.status(200).send({msg : "subscriptions and credit stored successfully"})
         
@@ -798,12 +732,10 @@ app.post("/subscription", async(req,res)=>{
         res.status(404).send(err)
     })
 
-
-
 })
 
 app.get("/getuser", async(req,res)=>{
-    const user = await User.find()
+    const user = await User.find({},{password:0})
     res.status(200).send({user})
 })
 
@@ -813,10 +745,6 @@ app.get("/byemail/:email", async(req,res)=>{
     res.status(200).send({user})
 })
 
-// app.post("/upload-blog",upload.single('image'), (req,res)=>{
-//     console.log(req.file)
-//     res.status(200).send({msg: "img stored in multer", file: req.file?.filename})
-// })
 
 app.post("/post-blog",async(req,res)=>{
     console.log(req.body)
@@ -843,10 +771,9 @@ app.get("/all-blog",async(req,res)=>{
 app.post("/contacus",async(req,res)=>{
     const {names, email, subject, message} = req.body
 
-    const userData = await Contact({names, email, subject, message})
+    console.log({names, email, subject, message})
 
-    await userData.save()
-
+    sendContact(email, names, message, subject)
     res.status(200).send({msg: "complain send successfully !"})
 })
 
@@ -858,8 +785,8 @@ app.get("/contact", async(req,res)=>{
 
 app.post("/post-review",async (req,res)=>{
     try{
-        const { name, email, rates, message } = req.body
-        const reviewData = await Review({ name, email, rates, message })
+        const { name, profile, rates, message } = req.body
+        const reviewData = await Review({ name, profile, rates, message })
         await reviewData.save()
 
         res.status(200).send({msg: "review stored successfully" })
@@ -870,6 +797,7 @@ app.post("/post-review",async (req,res)=>{
 
 
 app.get("/get-review",async(req,res)=>{
+    res.setHeader('Access-Control-Allow-Origin', "http://localhost:5173");
     const reviewData = await Review.find()
   
     res.status(200).send(reviewData)
@@ -908,6 +836,329 @@ app.post("/update-review", async (req, res) => {
 app.get('/auth/callback/failure', (req, res) => {
     res.send("Error")
 })
+
+app.post("/sendPartCredits",async(req, res)=>{
+    const {email, credits} = req.body;
+
+    await User.findOneAndUpdate({email}, {partcredit: credits}).then(()=>{
+        console.log("partner credits send successfully")
+        res.status(200).send("partner credits send successfully")
+    }).catch((err)=>{
+        console.log(err)
+    })
+})
+
+app.get("/resUser",  async(req,res)=>{
+    User.find({})
+    .select('firstName' ) // Include firstname field
+    .select('email' )
+    .select('profile')
+    .then(users => {
+      res.json(users); // Send users data to the frontend
+    })
+})
+
+app.post("/sendMember",async(req, res)=>{
+    const {member, email} = req.body;
+
+    const user = await User.findOne({email})
+
+        await User.findOneAndUpdate({email}, {member}).then(()=>{
+            console.log("partner member send successfully")
+            res.status(200).json({msg:`partner member send successfully for ${email}` })
+        }).catch((err)=>{
+            console.log(err)
+        })
+    
+})
+
+
+app.post("/member-null",async(req,res)=>{
+    const {email} = req.body;
+    let isLeader = false
+
+    await User.findOne({email}).select("-history").then((user)=>{
+
+        user?.member?.map((el) =>{
+            if(el?.type=='leaders' && email == el?.email){
+                isLeader = true
+            }
+        })
+
+        if(isLeader){
+            user?.member?.map(async(el)=>{
+                await User.findOneAndUpdate({email: el?.email}, {subscription:  null, member: null, expires: null, partcredit: 0}).then(()=>{
+                    console.log(el?.email, " member is set to be null" )
+                }).catch((err)=>{
+                    console.log(err)
+                })
+            })
+        }
+
+        res.status(200).send(user)
+        
+    }).catch((err)=>{
+        res.status(404).send(err)
+    })
+})
+
+app.post("/change-password", async(req,res)=>{
+    const {email, oldpass, newpass, confpass} = req.body
+
+    console.log({email, oldpass, newpass, confpass})
+
+    const user = await User.findOne({email})
+
+    const isMatch = await bcrypt.compare(oldpass, user.password)
+
+    console.log(isMatch)
+
+    if(isMatch){
+       if(newpass == confpass){
+        const password = await bcrypt.hash(newpass, 10)
+        await User.findOneAndUpdate({email}, {password}).then(()=>{
+            res.status(200).json({msg: "password changed successfully !", success: true})
+        })
+       }else{
+        res.status(200).json({msg: "please write new pasword and confirm password as same as !", success: false})
+       }
+    }else{
+        res.status(200).json({msg: "password is wrong !", success: false})
+    }
+
+})
+
+app.post("/adlogin", async (req,res)=>{
+    const {email, password} = req.body
+
+    if(email == process.env.ADMIN_EMAIL_1){
+        if(password == process.env.ADMIN_PASSWRD_1){
+           const tok = jwt.sign({ email }, 'your-secret-key', {
+                expiresIn: '1d' // Token expiry (e.g., 1 day)
+            });
+            console.log('Authentication successful');  // Log success
+           return res.status(200).send({msg: "admin 1 login", token: tok})
+        }else{
+            console.log('Authentication failed');
+            return res.status(200).send({msg: "login failed" , success: false})
+        }
+    }else if(email == process.env.ADMIN_EMAIL_2){
+        if(password == process.env.ADMIN_PASSWRD_2){
+           const tok = jwt.sign({ email }, 'your-secret-key', {
+                expiresIn: '1d' // Token expiry (e.g., 1 day)
+            });
+            console.log('Authentication successful');  // Log success
+           return res.status(200).send({msg: "admin 1 login", token: tok})
+        }else{
+            console.log('Authentication failed');
+            return res.status(200).send({msg: "login failed" , success: false})
+        }
+    }else{
+        console.log('Authentication failed');
+        return res.status(200).send({msg: "login failed" , success: false})
+    }
+
+})
+
+
+app.post("/adverify", async (req,res)=>{
+    const {token} = req.body
+    const user = await jwt.verify(token, 'your-secret-key')
+    
+    res.status(200).send({user})
+})
+
+app.post("/chg-otp", async (req,res)=>{
+    const {email} = req.body
+
+   const otps = otpGenerator.generate(6, { upperCaseAlphabets: false, specialChars: false, lowerCaseAlphabets: false });
+    console.log(`otp from mail side :- ${otps}`);
+     sendmail(otps, email);
+
+    const tok = jwt.sign({ otp: otps, data: "data" }, 'your-secret-key', {
+        expiresIn: '1h' // Token expiry (e.g., 1 day)
+    }); 
+
+    await User.findOneAndUpdate({email}, {verifyOtp: tok})
+
+    res.status(200).send({msg: "otp send successfully", otp: tok, success: true})
+
+})
+
+app.post("/chg-verify",async (req,res)=>{
+    const {otp, email, password, cofpassword} = req.body
+
+   const user =  await User.findOne({email})
+
+   if(!user){
+    res.status(200).send({msg: "uset not found", success: false})
+    return
+   }
+
+  const isCorrectOtp =  jwt.verify(user.verifyOtp, 'your-secret-key')
+
+  if(isCorrectOtp.otp == otp){
+    console.log("otp is correct")
+
+    if(password != cofpassword){
+        res.status(200).send({msg: "please write confirm password and password as same as !", success: false})
+        return
+    }
+
+    const pass = await bcrypt.hash(password, 10)
+
+    await User.findOneAndUpdate({email}, {password: pass}).then(()=>{
+        res.status(200).send({msg: "password is success fully", success: true})
+    }).catch((err)=>{
+        console.log(err)
+    })
+
+  }else{
+    res.status(200).send({msg : "your Otp is incorrect", success: false})
+  }
+
+
+})
+
+
+const XMLHttpRequest = require('xhr2')
+
+const uploadDatasetImage = async (files, response) => {
+    console.log("i am inside function")
+	const rawFields = response?.fields;
+	const fields = JSON.parse(rawFields);
+	const url = response?.url;
+
+    console.log("id:", response?.id)
+
+
+	const formData = new FormData();
+
+    const file = files?.buffer
+
+    console.log("file buffer", file)
+
+	Object.entries({ ...fields, file }).forEach(([key, value]) => {
+        formData.append(key, value);
+      });
+    
+    //   const request = new XMLHttpRequest();
+    //   request.open('POST', url);
+    // request.onload = () => {
+    //     if (request.status >= 200 && request.status < 300) {
+    //       console.log("Image uploaded successfully.");
+    //       resolve(request.response);
+    //     } else {
+    //       console.error(`Failed to upload image: ${request.statusText}`);
+    //       console.log(`Failed to upload image: ${request.statusText}`);
+    //     }
+    //   };
+  
+    //   request.onerror = () => reject("An error occurred during the upload");
+  
+
+
+    // console.log("request posting ended")
+	// const result = await request.send(file);
+    // console.log("send formData")
+
+
+    await axios.post(url, formData).then((res)=>{
+        console.log("image upload succeesfully", res.status)
+    }).catch((err)=>{
+        console.log("this is from axios err", err)
+    })
+}
+
+app.get("/getimg/:id",(req,res)=>{
+    const {id} = req.params
+    console.log("params:". id)
+    leonardoai.auth(process.env.LEAONARDO_API_KEY)
+                leonardoai.getGenerationById({id})
+                .then(({data}) => {
+                        console.log("i am inside the status")
+                        console.log("status:",data)
+                        res.status(200).json({data})
+                })
+                .catch(err => console.error(err));
+})
+
+// Backend API endpoint to receive file from frontend and upload to S3
+app.post('/dataset-image', uploads.single('file'), async (req, res) => {
+    
+    console.log("the propmt:", req.body.msg)
+    console.log("the no of img:", req.body.noImG)
+    console.log("the email:", req.body.email)
+
+	try {
+        res.setHeader("Access-Control-Allow-Origin", `http://localhost:5173`);
+		const file = req.file;
+        console.log("File:", file)
+		// 1. Obtain pre-signed URL and fields from an API (assumed to be your backend method)
+
+        const extensionArr = file.originalname.split(".")
+
+        const extension = extensionArr[extensionArr.length-1]
+
+        console.log("Extension:", extension)
+
+        let response
+
+        leonardoai.auth(process.env.LEAONARDO_API_KEY);
+        leonardoai.uploadInitImage({extension})
+        .then(({ data }) => {
+            // console.log("init id:",data)
+            response = data?.uploadInitImage
+            console.log("init id:", data?.uploadInitImage?.id)
+		 uploadDatasetImage(file, data?.uploadInitImage);
+         axios.post("http://localhost:3000/text", { msg: req.body.msg, noImG: 1, email: req.body.email }).then((res)=>{
+            console.log("this geneation id:",res.data)
+            const id = res.data?.id
+            console.log("this is id", id)
+            let status = true
+            // while(status == true){
+                console.log("in loop")
+                axios.get(`http://localhost:3000/getimg/${id}`).then((response)=>{
+                    if(response.data?.data?.generations_by_pk?.status == "COMPLETE"){
+                        status = false
+                        console.log("generated img:", response.data?.data?.generations_by_pk)
+                    }
+                        console.log("generated img status:", response.data?.data?.generations_by_pk?.status)
+                }).catch((err)=>{
+                    console.log(err)
+                })
+                
+            // }
+
+           
+
+         }).catch((err)=>{
+            console.log("there is err from id generation")
+         })
+        })
+        .catch(err => console.error(err));
+
+
+        console.log("excueting ended")
+
+		res.json({ message: 'File uploaded successfully' });
+	} catch (error) {
+		console.error('Error uploading file:', error);
+		res.status(500).json({ error: 'Failed to upload image' });
+	}
+});
+
+
+
+
+// The uploadDatasetImage function here should be the same as defined earlier
+
+
+
+
+
+
+
 
 
 app.listen(process.env.PORT, () => {
